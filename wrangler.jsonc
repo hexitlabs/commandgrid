@@ -1,0 +1,83 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "commandgrid",
+  "main": ".open-next/worker.js",
+  "compatibility_date": "2026-05-26",
+  "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
+  "assets": {
+    "binding": "ASSETS",
+    "directory": ".open-next/assets"
+  },
+  "observability": {
+    "enabled": true
+  },
+  "vars": {
+    "ENVIRONMENT": "production",
+    "DEMO_MODE": "true",
+    "COMMANDGRID_AI_GATEWAY_ID": "commandgrid",
+    "COMMANDGRID_AI_GATEWAY_URL": "https://gateway.ai.cloudflare.com/v1/90bd57fa515e6047d52b8778de07c7fe/commandgrid"
+  },
+  "hyperdrive": [
+    {
+      "binding": "COMMANDGRID_DB",
+      "id": "ccec67513012470c984d5e6f16d70d52"
+    }
+  ],
+  "kv_namespaces": [
+    {
+      "binding": "COMMANDGRID_CONFIG",
+      "id": "54e0292de25945e2ad761f2a444fbf92"
+    }
+  ],
+  "r2_buckets": [
+    {
+      "binding": "COMMANDGRID_REPORTS",
+      "bucket_name": "commandgrid-reports"
+    }
+  ],
+  "queues": {
+    "producers": [
+      {
+        "binding": "COMMANDGRID_EVENTS",
+        "queue": "commandgrid-events"
+      }
+    ]
+  },
+  "env": {
+    "preview": {
+      "name": "commandgrid-preview",
+      "vars": {
+        "ENVIRONMENT": "preview",
+        "DEMO_MODE": "true",
+        "COMMANDGRID_AI_GATEWAY_ID": "commandgrid",
+        "COMMANDGRID_AI_GATEWAY_URL": "https://gateway.ai.cloudflare.com/v1/90bd57fa515e6047d52b8778de07c7fe/commandgrid"
+      },
+      "hyperdrive": [
+        {
+          "binding": "COMMANDGRID_DB",
+          "id": "ccec67513012470c984d5e6f16d70d52"
+        }
+      ],
+      "kv_namespaces": [
+        {
+          "binding": "COMMANDGRID_CONFIG",
+          "id": "54e0292de25945e2ad761f2a444fbf92"
+        }
+      ],
+      "r2_buckets": [
+        {
+          "binding": "COMMANDGRID_REPORTS",
+          "bucket_name": "commandgrid-reports"
+        }
+      ],
+      "queues": {
+        "producers": [
+          {
+            "binding": "COMMANDGRID_EVENTS",
+            "queue": "commandgrid-events"
+          }
+        ]
+      }
+    }
+  }
+}
