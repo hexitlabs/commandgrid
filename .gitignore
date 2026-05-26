@@ -1,0 +1,30 @@
+# dependencies
+node_modules/
+.pnpm-store/
+
+# env/secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# build outputs
+.next/
+out/
+dist/
+.vercel/
+.wrangler/
+.open-next/
+
+# logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+*.log
+
+# OS/editor
+.DS_Store
+.vscode/
+.idea/
