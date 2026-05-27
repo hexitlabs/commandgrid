@@ -18,8 +18,8 @@ type DemoRoleContextValue = {
 
 const DemoRoleContext = createContext<DemoRoleContextValue | null>(null);
 
-export function DemoRoleProvider({ children }: { children: ReactNode }) {
-  const [roleSlug, setRoleSlugState] = useState<DemoRoleSlug>(defaultDemoRole);
+export function DemoRoleProvider({ children, initialRole = defaultDemoRole }: { children: ReactNode; initialRole?: DemoRoleSlug }) {
+  const [roleSlug, setRoleSlugState] = useState<DemoRoleSlug>(initialRole);
   const [isRoleReady, setIsRoleReady] = useState(false);
 
   useEffect(() => {
