@@ -9,6 +9,7 @@ export type CommandGridCloudflareEnv = {
   COMMANDGRID_EVENTS?: Queue;
   COMMANDGRID_AI_GATEWAY_URL?: string;
   COMMANDGRID_AI_GATEWAY_ID?: string;
+  COMMANDGRID_AI_DISABLED?: string;
   ENVIRONMENT?: string;
   DEMO_MODE?: string;
 };
