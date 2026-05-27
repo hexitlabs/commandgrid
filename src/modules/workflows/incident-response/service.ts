@@ -1,5 +1,5 @@
-import { eq } from "drizzle-orm";
-import type { CommandGridDb } from "../../../lib/db/client";
+import { and, eq } from "drizzle-orm";
+import type { CommandGridDb, CommandGridDbLike } from "../../../lib/db/client";
 import { generateWithAiGateway, type AiGenerationEnv } from "../../../lib/ai/gateway";
 import { approvals, decisions, agentEvents, agentRuns, incidentTimelineEvents, incidents, notifications, recommendations, reports } from "../../../lib/db/schema";
 import { deterministicAgentFallback } from "../../agents/fallbacks";
@@ -95,7 +95,7 @@ export async function startDemoIncidentWorkflow(db: CommandGridDb, env: Incident
         customerImpactSummary: "312 delayed orders across eight demo customers; $48,200 revenue at risk.",
         updatedAt: new Date()
       })
-      .where(eq(incidents.id, PHASE5_WORKFLOW.incidentId));
+      .where(and(eq(incidents.id, PHASE5_WORKFLOW.incidentId), eq(incidents.organizationId, PHASE5_WORKFLOW.organizationId)));
   }
 
   await writeAuditLog(db, {
@@ -224,7 +224,14 @@ export async function startDemoIncidentWorkflow(db: CommandGridDb, env: Incident
         status: "pending",
         riskLevel: "medium",
         dueAt: new Date(date(PHASE5_WORKFLOW.occurredAt).getTime() + 20 * 60_000),
-        metadata: { runId: PHASE5_WORKFLOW.runId, simulated: true, stopBeforeRemediation: true }
+        metadata: {
+          runId: PHASE5_WORKFLOW.runId,
+          simulated: true,
+          stopBeforeRemediation: true,
+          actionType: "technical_remediation",
+          continuation: "phase5-remediation",
+          evidenceLabels: ["OPS-BUF-006", "RUN-WH-API-004"]
+        }
       })
       .onConflictDoUpdate({
         target: approvals.id,
@@ -232,7 +239,14 @@ export async function startDemoIncidentWorkflow(db: CommandGridDb, env: Incident
           status: "pending",
           description:
             "Governance gate for the autonomous workflow. Approving resumes CommandGrid and simulates regional buffer mode; no external systems are changed.",
-          metadata: { runId: PHASE5_WORKFLOW.runId, simulated: true, stopBeforeRemediation: true },
+          metadata: {
+            runId: PHASE5_WORKFLOW.runId,
+            simulated: true,
+            stopBeforeRemediation: true,
+            actionType: "technical_remediation",
+            continuation: "phase5-remediation",
+            evidenceLabels: ["OPS-BUF-006", "RUN-WH-API-004"]
+          },
           updatedAt: new Date()
         }
       });
@@ -281,8 +295,16 @@ export async function startDemoIncidentWorkflow(db: CommandGridDb, env: Incident
   };
 }
 
-export async function approveDemoRemediation(db: CommandGridDb, options: { actorUserId?: string; rationale?: string } = {}): Promise<ApproveRemediationResult> {
-  const [approval] = await db.select({ status: approvals.status }).from(approvals).where(eq(approvals.id, PHASE5_WORKFLOW.approvalId)).limit(1);
+export async function approveDemoRemediation(
+  db: CommandGridDbLike,
+  options: { actorUserId?: string; rationale?: string; organizationId?: string; decisionId?: string; skipApprovalDecisionAudit?: boolean } = {}
+): Promise<ApproveRemediationResult> {
+  const organizationId = options.organizationId ?? PHASE5_WORKFLOW.organizationId;
+  const [approval] = await db
+    .select({ status: approvals.status })
+    .from(approvals)
+    .where(and(eq(approvals.id, PHASE5_WORKFLOW.approvalId), eq(approvals.organizationId, organizationId)))
+    .limit(1);
 
   if (!approval) {
     throw new Error("Phase 5 remediation approval does not exist. Run /api/demo/run-incident first.");
@@ -290,12 +312,13 @@ export async function approveDemoRemediation(db: CommandGridDb, options: { actor
 
   const alreadyRemediated = approval.status === "approved";
   const actorUserId = options.actorUserId ?? PHASE5_WORKFLOW.actorUserId;
+  const approvalDecisionId = options.decisionId ?? (alreadyRemediated ? undefined : PHASE5_WORKFLOW.decisionId);
 
   if (!alreadyRemediated) {
     await db
       .update(approvals)
       .set({ status: "approved", updatedAt: new Date() })
-      .where(eq(approvals.id, PHASE5_WORKFLOW.approvalId));
+      .where(and(eq(approvals.id, PHASE5_WORKFLOW.approvalId), eq(approvals.organizationId, organizationId)));
 
     await db
       .insert(decisions)
@@ -320,21 +343,23 @@ export async function approveDemoRemediation(db: CommandGridDb, options: { actor
       });
   }
 
-  await writeAuditLog(db, {
-    id: "audit_phase5_approval_approved",
-    organizationId: PHASE5_WORKFLOW.organizationId,
-    actorUserId,
-    action: "approval.approved",
-    targetType: "approval",
-    targetId: PHASE5_WORKFLOW.approvalId,
-    occurredAt: date(PHASE5_WORKFLOW.approvedAt),
-    metadata: { runId: PHASE5_WORKFLOW.runId, decisionId: PHASE5_WORKFLOW.decisionId }
-  });
+  if (!options.skipApprovalDecisionAudit) {
+    await writeAuditLog(db, {
+      id: "audit_phase5_approval_approved",
+      organizationId,
+      actorUserId,
+      action: "approval.approved",
+      targetType: "approval",
+      targetId: PHASE5_WORKFLOW.approvalId,
+      occurredAt: date(PHASE5_WORKFLOW.approvedAt),
+      metadata: { runId: PHASE5_WORKFLOW.runId, ...(approvalDecisionId ? { decisionId: approvalDecisionId } : {}) }
+    });
+  }
 
   await db
     .update(recommendations)
     .set({ status: "implemented", updatedAt: new Date() })
-    .where(eq(recommendations.id, PHASE5_WORKFLOW.recommendationId));
+    .where(and(eq(recommendations.id, PHASE5_WORKFLOW.recommendationId), eq(recommendations.organizationId, organizationId)));
 
   await db
     .update(incidents)
@@ -346,7 +371,7 @@ export async function approveDemoRemediation(db: CommandGridDb, options: { actor
       customerImpactSummary: "312 delayed orders stabilized; $48,200 revenue-at-risk exposure moved to post-incident follow-up.",
       updatedAt: new Date()
     })
-    .where(eq(incidents.id, PHASE5_WORKFLOW.incidentId));
+    .where(and(eq(incidents.id, PHASE5_WORKFLOW.incidentId), eq(incidents.organizationId, organizationId)));
 
   await db
     .insert(incidentTimelineEvents)

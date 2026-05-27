@@ -16,3 +16,5 @@ export function createCommandGridDb(connectionString: string) {
 }
 
 export type CommandGridDb = ReturnType<typeof createCommandGridDb>["db"];
+export type CommandGridTransaction = Parameters<Parameters<CommandGridDb["transaction"]>[0]>[0];
+export type CommandGridDbLike = CommandGridDb | CommandGridTransaction;

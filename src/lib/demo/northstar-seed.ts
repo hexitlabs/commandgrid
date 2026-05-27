@@ -438,7 +438,12 @@ export async function seedNorthstarDemo(sql: Sql, options: { resetExisting?: boo
       status: "pending",
       risk_level: "medium",
       due_at: "2025-02-18T16:25:00.000Z",
-      metadata: { recommendationId: "rec_enable_buffer_mode" }
+      metadata: {
+        recommendationId: "rec_enable_buffer_mode",
+        actionType: "technical_remediation",
+        continuation: "flagship-remediation",
+        evidenceLabels: ["OPS-BUF-006", "RUN-WH-API-004"]
+      }
     },
     {
       id: "approval_customer_credit_envelope",
@@ -452,7 +457,12 @@ export async function seedNorthstarDemo(sql: Sql, options: { resetExisting?: boo
       status: "pending",
       risk_level: "high",
       due_at: "2025-02-18T17:00:00.000Z",
-      metadata: { maxCreditCents: 1250000 }
+      metadata: {
+        maxCreditCents: 1250000,
+        actionType: "financial_credit",
+        continuation: "financial-review",
+        evidenceLabels: ["FIN-CRED-009"]
+      }
     },
     {
       id: "approval_publish_customer_update",
@@ -466,7 +476,12 @@ export async function seedNorthstarDemo(sql: Sql, options: { resetExisting?: boo
       status: "approved",
       risk_level: "low",
       due_at: "2025-02-18T16:15:00.000Z",
-      metadata: { communicationBatch: "flagship-initial" }
+      metadata: {
+        communicationBatch: "flagship-initial",
+        actionType: "customer_communication",
+        continuation: "customer-comms",
+        evidenceLabels: ["SUP-COMMS-002"]
+      }
     }
   ]);
 

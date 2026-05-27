@@ -20,7 +20,8 @@
     "db:migrate": "drizzle-kit migrate",
     "db:seed": "tsx scripts/seed.ts",
     "demo:reset": "tsx scripts/reset-demo.ts",
-    "workflow:smoke": "tsx scripts/workflow-smoke.ts"
+    "workflow:smoke": "tsx scripts/workflow-smoke.ts",
+    "governance:audit-smoke": "tsx scripts/governance-audit-smoke.ts"
   },
   "dependencies": {
     "@opennextjs/cloudflare": "^1.19.11",
