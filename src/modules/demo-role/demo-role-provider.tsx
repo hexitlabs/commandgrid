@@ -7,7 +7,7 @@ import {
   type DemoRoleOption,
   type DemoRoleSlug
 } from "@/modules/demo-role/demo-role-config";
-import { persistDemoRole, readStoredDemoRole } from "@/modules/demo-role/demo-role-storage";
+import { parseDemoRole, persistDemoRole, readStoredDemoRole } from "@/modules/demo-role/demo-role-storage";
 
 type DemoRoleContextValue = {
   roleSlug: DemoRoleSlug;
@@ -21,7 +21,8 @@ export function DemoRoleProvider({ children }: { children: ReactNode }) {
   const [roleSlug, setRoleSlugState] = useState<DemoRoleSlug>(defaultDemoRole);
 
   useEffect(() => {
-    setRoleSlugState(readStoredDemoRole(window.localStorage));
+    const urlRole = new URLSearchParams(window.location.search).get("role");
+    setRoleSlugState(urlRole ? parseDemoRole(urlRole) : readStoredDemoRole(window.localStorage));
   }, []);
 
   const value = useMemo<DemoRoleContextValue>(() => {

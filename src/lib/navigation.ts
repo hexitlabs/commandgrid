@@ -8,10 +8,24 @@ export type NavigationItem = {
 
 export const primaryNavigation: NavigationItem[] = [
   {
-    label: "Command Center",
-    description: "Northstar incident overview and operating picture.",
-    href: "/",
+    label: "Dashboard",
+    description: "Operational health, business impact, approvals, and trend signals.",
+    href: "/dashboard",
     status: "live",
+    phase: "Phase 4"
+  },
+  {
+    label: "Incidents",
+    description: "Timeline, impact, response owners, and customer status.",
+    href: "/incidents",
+    status: "live",
+    phase: "Phase 4"
+  },
+  {
+    label: "Command Center",
+    description: "Phase 3 shell and Northstar incident overview.",
+    href: "/",
+    status: "showcase",
     phase: "Phase 3"
   },
   {
@@ -24,12 +38,6 @@ export const primaryNavigation: NavigationItem[] = [
 ];
 
 export const plannedNavigation: NavigationItem[] = [
-  {
-    label: "Incidents",
-    description: "Timeline, impact, response owners, and customer status.",
-    status: "planned",
-    phase: "Phase 4"
-  },
   {
     label: "Autonomous Agents",
     description: "Runbooks, investigation tasks, and governed remediation.",
