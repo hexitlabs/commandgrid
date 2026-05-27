@@ -1,5 +1,5 @@
 import { auditLogs } from "../../lib/db/schema";
-import type { CommandGridDb } from "../../lib/db/client";
+import type { CommandGridDbLike } from "../../lib/db/client";
 
 export type AuditLogInput = {
   id: string;
@@ -13,7 +13,7 @@ export type AuditLogInput = {
   metadata?: Record<string, unknown>;
 };
 
-export async function writeAuditLog(db: CommandGridDb, input: AuditLogInput) {
+export async function writeAuditLog(db: CommandGridDbLike, input: AuditLogInput) {
   await db
     .insert(auditLogs)
     .values({

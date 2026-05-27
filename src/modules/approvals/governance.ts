@@ -23,6 +23,15 @@ function isDemoRole(value: string | null | undefined): value is DemoRoleSlug {
   );
 }
 
+function actionTypeFromAssignedRole(assignedRoleSlug: string | null): ApprovalActionType | null {
+  if (assignedRoleSlug === "ops-manager") return "technical_remediation";
+  if (assignedRoleSlug === "finance-reviewer") return "financial_credit";
+  if (assignedRoleSlug === "support-lead") return "customer_communication";
+  if (assignedRoleSlug === "executive") return "executive_escalation";
+  if (assignedRoleSlug === "admin") return "workspace_admin";
+  return null;
+}
+
 function actionTypeFromApproval(approval: ApprovalLike): ApprovalActionType {
   const metadata = approval.metadata ?? {};
   const metadataAction = metadata.actionType;
@@ -35,6 +44,13 @@ function actionTypeFromApproval(approval: ApprovalLike): ApprovalActionType {
     return "technical_remediation";
   }
 
+  const assignedRoleAction = actionTypeFromAssignedRole(approval.assignedRoleSlug);
+  if (assignedRoleAction) {
+    return assignedRoleAction;
+  }
+
+  // Legacy approvals created before governance metadata are kept readable, but
+  // title inference is intentionally the last fallback because titles are free text.
   const title = approval.title.toLowerCase();
   if (title.includes("credit") || title.includes("finance")) return "financial_credit";
   if (title.includes("customer update") || title.includes("comms") || title.includes("communication")) return "customer_communication";

@@ -1,9 +1,9 @@
-import { eq } from "drizzle-orm";
-import type { CommandGridDb } from "../../lib/db/client";
+import { and, eq } from "drizzle-orm";
+import type { CommandGridDb, CommandGridDbLike } from "../../lib/db/client";
 import { approvals, decisions, incidentTimelineEvents, incidents, notifications, recommendations, roles, users } from "../../lib/db/schema";
 import { writeAuditLog } from "../audit/service";
 import { evaluateGovernancePermission, parseDemoRole } from "../permissions/governance";
-import { metadataRecord } from "../shared/query-utils";
+import { DEFAULT_ORGANIZATION_SLUG, getOrganizationOrThrow, metadataRecord } from "../shared/query-utils";
 import { PHASE5_WORKFLOW } from "../workflows/incident-response/constants";
 import { approveDemoRemediation } from "../workflows/incident-response/service";
 import { deriveApprovalGovernance } from "./governance";
@@ -76,7 +76,7 @@ export function buildDecisionSideEffects(input: {
 }) {
   const approved = input.decision === "approved";
   const status = approved ? "approved" : "rejected";
-  const continuationStatus = approved ? "resumed" : "stopped";
+  const continuationStatus = approved ? (input.continuation === "manual-review" ? "recorded" : "resumed") : "stopped";
   const impact = approved
     ? `Approved ${input.actionType.replaceAll("_", " ")} and ${input.continuation === "manual-review" ? "recorded the decision" : "released the continuation path"}.`
     : `Rejected ${input.actionType.replaceAll("_", " ")}; continuation path is stopped for this demo action.`;
@@ -90,7 +90,7 @@ export function buildDecisionSideEffects(input: {
   } as const;
 }
 
-async function loadApprovalForDecision(db: CommandGridDb, approvalId: string) {
+async function loadApprovalForDecision(db: CommandGridDb, approvalId: string, organizationId: string) {
   const [row] = await db
     .select({
       id: approvals.id,
@@ -108,7 +108,7 @@ async function loadApprovalForDecision(db: CommandGridDb, approvalId: string) {
     .from(approvals)
     .leftJoin(roles, eq(roles.id, approvals.assignedRoleId))
     .leftJoin(recommendations, eq(recommendations.id, approvals.recommendationId))
-    .where(eq(approvals.id, approvalId))
+    .where(and(eq(approvals.id, approvalId), eq(approvals.organizationId, organizationId)))
     .limit(1);
 
   return row ?? null;
@@ -125,18 +125,25 @@ function timelineEventId(approvalId: string, decision: ApprovalDecision) {
 }
 
 async function applyApprovedContinuation(
-  db: CommandGridDb,
+  db: CommandGridDbLike,
   approval: Awaited<ReturnType<typeof loadApprovalForDecision>> & {},
   actorUserId: string | null,
-  rationale: string
+  rationale: string,
+  decisionId?: string
 ) {
   if (approval.id === PHASE5_WORKFLOW.approvalId) {
-    await approveDemoRemediation(db, { actorUserId: actorUserId ?? undefined, rationale });
+    await approveDemoRemediation(db, {
+      actorUserId: actorUserId ?? undefined,
+      rationale,
+      organizationId: approval.organizationId,
+      decisionId,
+      skipApprovalDecisionAudit: true
+    });
     return;
   }
 
   if (approval.recommendationId) {
-    await db.update(recommendations).set({ status: "implemented", updatedAt: new Date() }).where(eq(recommendations.id, approval.recommendationId));
+    await db.update(recommendations).set({ status: "implemented", updatedAt: new Date() }).where(and(eq(recommendations.id, approval.recommendationId), eq(recommendations.organizationId, approval.organizationId)));
   }
 
   if (approval.incidentId) {
@@ -166,7 +173,7 @@ async function applyApprovedContinuation(
         customerImpactSummary: "Demo impact stabilized after approved remediation simulation.",
         updatedAt: new Date()
       })
-      .where(eq(incidents.id, approval.incidentId));
+      .where(and(eq(incidents.id, approval.incidentId), eq(incidents.organizationId, approval.organizationId)));
   }
 
   if (governance.continuation === "customer-comms" && approval.incidentId) {
@@ -188,16 +195,16 @@ async function applyApprovedContinuation(
   }
 }
 
-async function applyRejectedContinuation(db: CommandGridDb, approval: Awaited<ReturnType<typeof loadApprovalForDecision>> & {}, actorUserId: string | null) {
+async function applyRejectedContinuation(db: CommandGridDbLike, approval: Awaited<ReturnType<typeof loadApprovalForDecision>> & {}, actorUserId: string | null) {
   if (approval.recommendationId) {
-    await db.update(recommendations).set({ status: "rejected", updatedAt: new Date() }).where(eq(recommendations.id, approval.recommendationId));
+    await db.update(recommendations).set({ status: "rejected", updatedAt: new Date() }).where(and(eq(recommendations.id, approval.recommendationId), eq(recommendations.organizationId, approval.organizationId)));
   }
 
   if (approval.incidentId) {
     await db
       .update(incidents)
       .set({ status: "active", updatedAt: new Date() })
-      .where(eq(incidents.id, approval.incidentId));
+      .where(and(eq(incidents.id, approval.incidentId), eq(incidents.organizationId, approval.organizationId)));
 
     await db
       .insert(incidentTimelineEvents)
@@ -221,7 +228,8 @@ export async function decideApproval(db: CommandGridDb, input: DecideApprovalInp
     throw new GovernancePermissionError("Invalid demo role. Selected role must be one of the server allowlisted public demo roles.");
   }
 
-  const approval = await loadApprovalForDecision(db, input.approvalId);
+  const organization = await getOrganizationOrThrow(db, input.organizationSlug ?? DEFAULT_ORGANIZATION_SLUG);
+  const approval = await loadApprovalForDecision(db, input.approvalId, organization.id);
   if (!approval) {
     throw new ApprovalDecisionError(`Approval not found: ${input.approvalId}`, 404);
   }
@@ -261,68 +269,75 @@ export async function decideApproval(db: CommandGridDb, input: DecideApprovalInp
     outcome: input.decision
   };
 
-  await db.insert(decisions).values({
-    id: decisionId,
-    approvalId: approval.id,
-    decidedByUserId: actorUserId,
-    decision: input.decision,
-    rationale,
-    decidedAt,
-    metadata: decisionMetadata
-  });
+  return await db.transaction(async (tx): Promise<ApprovalDecisionResult> => {
+    const [claimedApproval] = await tx
+      .update(approvals)
+      .set({
+        status: sideEffects.approvalStatus,
+        metadata: {
+          ...existingMetadata,
+          actionType: governance.actionType,
+          continuation: governance.continuation,
+          continuationStatus: sideEffects.continuationStatus,
+          rejectionImpact: input.decision === "rejected" ? sideEffects.impact : undefined,
+          lastDecisionId: decisionId,
+          decidedByRole: role
+        },
+        updatedAt: decidedAt
+      })
+      .where(and(eq(approvals.id, approval.id), eq(approvals.organizationId, organization.id), eq(approvals.status, "pending")))
+      .returning({ id: approvals.id });
 
-  await db
-    .update(approvals)
-    .set({
-      status: sideEffects.approvalStatus,
+    if (!claimedApproval) {
+      throw new ApprovalDecisionError(`Approval is no longer pending; only one decision can be recorded for ${approval.id}.`, 409);
+    }
+
+    await tx.insert(decisions).values({
+      id: decisionId,
+      approvalId: approval.id,
+      decidedByUserId: actorUserId,
+      decision: input.decision,
+      rationale,
+      decidedAt,
+      metadata: decisionMetadata
+    });
+
+    await writeAuditLog(tx, {
+      id: auditLogId,
+      organizationId: approval.organizationId,
+      actorUserId,
+      action: sideEffects.auditAction,
+      targetType: "approval",
+      targetId: approval.id,
+      occurredAt: decidedAt,
+      ipAddress: input.ipAddress ?? null,
       metadata: {
-        ...existingMetadata,
-        actionType: governance.actionType,
-        continuation: governance.continuation,
-        continuationStatus: sideEffects.continuationStatus,
-        rejectionImpact: input.decision === "rejected" ? sideEffects.impact : undefined,
-        lastDecisionId: decisionId,
-        decidedByRole: role
-      },
-      updatedAt: decidedAt
-    })
-    .where(eq(approvals.id, approval.id));
+        ...decisionMetadata,
+        decisionId,
+        status: sideEffects.approvalStatus,
+        impact: sideEffects.impact
+      }
+    });
 
-  await writeAuditLog(db, {
-    id: auditLogId,
-    organizationId: approval.organizationId,
-    actorUserId,
-    action: sideEffects.auditAction,
-    targetType: "approval",
-    targetId: approval.id,
-    occurredAt: decidedAt,
-    ipAddress: input.ipAddress ?? null,
-    metadata: {
-      ...decisionMetadata,
+    if (input.decision === "approved") {
+      await applyApprovedContinuation(tx, approval, actorUserId, rationale, decisionId);
+    } else {
+      await applyRejectedContinuation(tx, approval, actorUserId);
+    }
+
+    return {
+      ok: true,
+      approvalId: approval.id,
       decisionId,
+      auditLogId,
       status: sideEffects.approvalStatus,
-      impact: sideEffects.impact
-    }
+      actorRole: role,
+      actorUserId,
+      continuation: {
+        status: sideEffects.continuationStatus,
+        action: governance.continuation,
+        impact: sideEffects.impact
+      }
+    };
   });
-
-  if (input.decision === "approved") {
-    await applyApprovedContinuation(db, approval, actorUserId, rationale);
-  } else {
-    await applyRejectedContinuation(db, approval, actorUserId);
-  }
-
-  return {
-    ok: true,
-    approvalId: approval.id,
-    decisionId,
-    auditLogId,
-    status: sideEffects.approvalStatus,
-    actorRole: role,
-    actorUserId,
-    continuation: {
-      status: sideEffects.continuationStatus,
-      action: governance.continuation,
-      impact: sideEffects.impact
-    }
-  };
 }

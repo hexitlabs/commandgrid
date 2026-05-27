@@ -9,6 +9,7 @@ type DecisionBody = {
   role?: string;
   decision?: string;
   rationale?: string;
+  organizationSlug?: string;
 };
 
 function requestIp(request: NextRequest) {
@@ -29,7 +30,9 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
     return NextResponse.json({ ok: false, error: "decision must be approved or rejected." }, { status: 400, headers: { "cache-control": "no-store" } });
   }
 
+  const url = new URL(request.url);
   const selectedRole = body.role ?? request.headers.get(demoRoleRequestHeader) ?? "";
+  const organizationSlug = body.organizationSlug ?? url.searchParams.get("organizationSlug") ?? undefined;
   const commandGrid = await openCommandGridDb();
 
   try {
@@ -38,6 +41,7 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
       selectedRole,
       decision: body.decision,
       rationale: body.rationale ?? "",
+      organizationSlug,
       ipAddress: requestIp(request)
     });
 

@@ -157,7 +157,12 @@ export async function queryAuditLogs(db: CommandGridDb, filters: AuditQueryFilte
         ilike(users.name, pattern),
         ilike(users.title, pattern),
         ilike(roles.slug, pattern),
-        sql`${auditLogs.metadata}::text ILIKE ${pattern}`
+        sql`${auditLogs.metadata}->>'actorRole' ILIKE ${pattern}`,
+        sql`${auditLogs.metadata}->>'actionType' ILIKE ${pattern}`,
+        sql`${auditLogs.metadata}->>'status' ILIKE ${pattern}`,
+        sql`${auditLogs.metadata}->>'outcome' ILIKE ${pattern}`,
+        sql`${auditLogs.metadata}->>'decision' ILIKE ${pattern}`,
+        sql`${auditLogs.metadata}->>'incidentId' ILIKE ${pattern}`
       ) ?? sql`true`
     );
   }
