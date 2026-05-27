@@ -27,17 +27,5 @@ export async function writeAuditLog(db: CommandGridDb, input: AuditLogInput) {
       ipAddress: input.ipAddress ?? null,
       metadata: input.metadata ?? {}
     })
-    .onConflictDoUpdate({
-      target: auditLogs.id,
-      set: {
-        actorUserId: input.actorUserId ?? null,
-        action: input.action,
-        targetType: input.targetType,
-        targetId: input.targetId,
-        occurredAt: input.occurredAt,
-        ipAddress: input.ipAddress ?? null,
-        metadata: input.metadata ?? {},
-        updatedAt: new Date()
-      }
-    });
+    .onConflictDoNothing();
 }

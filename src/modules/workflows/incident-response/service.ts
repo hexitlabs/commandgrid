@@ -224,7 +224,14 @@ export async function startDemoIncidentWorkflow(db: CommandGridDb, env: Incident
         status: "pending",
         riskLevel: "medium",
         dueAt: new Date(date(PHASE5_WORKFLOW.occurredAt).getTime() + 20 * 60_000),
-        metadata: { runId: PHASE5_WORKFLOW.runId, simulated: true, stopBeforeRemediation: true }
+        metadata: {
+          runId: PHASE5_WORKFLOW.runId,
+          simulated: true,
+          stopBeforeRemediation: true,
+          actionType: "technical_remediation",
+          continuation: "phase5-remediation",
+          evidenceLabels: ["OPS-BUF-006", "RUN-WH-API-004"]
+        }
       })
       .onConflictDoUpdate({
         target: approvals.id,
@@ -232,7 +239,14 @@ export async function startDemoIncidentWorkflow(db: CommandGridDb, env: Incident
           status: "pending",
           description:
             "Governance gate for the autonomous workflow. Approving resumes CommandGrid and simulates regional buffer mode; no external systems are changed.",
-          metadata: { runId: PHASE5_WORKFLOW.runId, simulated: true, stopBeforeRemediation: true },
+          metadata: {
+            runId: PHASE5_WORKFLOW.runId,
+            simulated: true,
+            stopBeforeRemediation: true,
+            actionType: "technical_remediation",
+            continuation: "phase5-remediation",
+            evidenceLabels: ["OPS-BUF-006", "RUN-WH-API-004"]
+          },
           updatedAt: new Date()
         }
       });
