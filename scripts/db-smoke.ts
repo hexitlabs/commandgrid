@@ -1,24 +1,24 @@
-import "dotenv/config";
-import { config } from "dotenv";
-import postgres from "postgres";
+import { createCommandGridDb } from "../src/lib/db/client";
+import { getDashboardMetrics } from "../src/lib/dashboard/metrics";
+import { createScriptSql, getDatabaseUrl } from "./db";
 
-config({ path: ".env.local", override: false });
-
-const databaseUrl = process.env.DATABASE_URL;
-
-if (!databaseUrl) {
-  console.error("DATABASE_URL is not configured");
-  process.exit(1);
-}
-
-const sql = postgres(databaseUrl, { max: 1, prepare: false });
+const sql = createScriptSql();
 
 try {
   const [row] = await sql<{ database: string; user: string; schema: string }[]>`
     select current_database() as database, current_user as user, current_schema() as schema
   `;
 
-  console.log(`db=${row.database}; user=${row.user}; schema=${row.schema}; ok=true`);
+  const commandGrid = createCommandGridDb(getDatabaseUrl());
+  try {
+    const metrics = await getDashboardMetrics(commandGrid.db);
+
+    console.log(
+      `db=${row.database}; user=${row.user}; schema=${row.schema}; active_incident=${metrics.activeIncident.slug}; delayed_orders=${metrics.activeIncident.delayedOrders}; revenue_at_risk_cents=${metrics.activeIncident.revenueAtRiskCents}; roles=${metrics.demoWorldCounts.roles}; incidents=${metrics.demoWorldCounts.incidents}; knowledge_docs=${metrics.knowledgeCitations.documents}; snippets=${metrics.knowledgeCitations.snippets}; ok=true`
+    );
+  } finally {
+    await commandGrid.sql.end({ timeout: 1 });
+  }
 } finally {
   await sql.end({ timeout: 1 });
 }
