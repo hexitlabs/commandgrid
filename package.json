@@ -15,7 +15,11 @@
     "cf:upload": "opennextjs-cloudflare build && opennextjs-cloudflare upload",
     "cf:typegen": "wrangler types --env-interface CloudflareEnv cloudflare-env.d.ts",
     "db:check": "tsx scripts/db-smoke.ts",
-    "ai:smoke": "tsx scripts/ai-gateway-smoke.ts"
+    "ai:smoke": "tsx scripts/ai-gateway-smoke.ts",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate",
+    "db:seed": "tsx scripts/seed.ts",
+    "demo:reset": "tsx scripts/reset-demo.ts"
   },
   "dependencies": {
     "@opennextjs/cloudflare": "^1.19.11",
@@ -36,6 +40,7 @@
     "@types/node": "^24.10.1",
     "@types/react": "^19.2.7",
     "@types/react-dom": "^19.2.3",
+    "drizzle-kit": "^0.31.10",
     "eslint": "^9.39.1",
     "eslint-config-next": "^16.0.5",
     "tailwindcss": "^4.1.17",
