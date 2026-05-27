@@ -8,13 +8,22 @@ import { openCommandGridDb } from "@/lib/db/server";
 import { formatDateTime, formatInteger, formatMoney, titleCase } from "@/modules/dashboard/formatters";
 import { INCIDENT_SEVERITIES, INCIDENT_STATUSES, type IncidentListFilters, type IncidentSortKey } from "@/modules/incidents/types";
 import { getIncidentList } from "@/modules/incidents/queries";
-import { resolveRoleView } from "@/modules/roles/route-role";
+import { resolveRoleParam, resolveRoleView } from "@/modules/roles/route-role";
 
 export const dynamic = "force-dynamic";
 
 type IncidentsPageProps = {
   searchParams?: Promise<Record<string, string | string[] | undefined>>;
 };
+
+type RoleHref = {
+  pathname: string;
+  query?: { role: string };
+};
+
+function roleHref(pathname: string, role: string): RoleHref {
+  return { pathname, query: { role } };
+}
 
 const sortOptions: Array<{ value: IncidentSortKey; label: string }> = [
   { value: "startedAt", label: "Started" },
@@ -60,6 +69,7 @@ function FilterPill({ href, label, active }: { href: string; label: string; acti
   return (
     <Link
       href={href}
+      aria-current={active ? "page" : undefined}
       className={
         active
           ? "rounded-full bg-slate-950 px-3 py-1.5 text-xs font-semibold text-white shadow-sm dark:bg-white dark:text-slate-950"
@@ -77,6 +87,7 @@ export default async function IncidentsPage({ searchParams }: IncidentsPageProps
   const severity = firstParam(resolvedSearchParams?.severity);
   const sortBy = firstParam(resolvedSearchParams?.sortBy) as IncidentSortKey | undefined;
   const sortDirection = firstParam(resolvedSearchParams?.sortDirection) === "asc" ? "asc" : "desc";
+  const role = resolveRoleParam(resolvedSearchParams?.role);
   const roleView = resolveRoleView(resolvedSearchParams?.role);
   const commandGrid = await openCommandGridDb();
 
@@ -157,7 +168,7 @@ export default async function IncidentsPage({ searchParams }: IncidentsPageProps
             {list.incidents.map((incident) => (
               <Link
                 key={incident.id}
-                href={`/incidents/${incident.slug}${resolvedSearchParams?.role ? `?role=${firstParam(resolvedSearchParams.role)}` : ""}`}
+                href={roleHref(`/incidents/${incident.slug}`, role)}
                 className="group rounded-[2rem] border border-slate-200/80 bg-white/85 p-5 shadow-sm shadow-slate-950/[0.03] backdrop-blur-xl transition hover:-translate-y-0.5 hover:border-blue-200 hover:shadow-lg hover:shadow-blue-950/[0.05] dark:border-white/10 dark:bg-white/[0.055] dark:hover:border-blue-300/30"
               >
                 <div className="flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between">

@@ -20,6 +20,15 @@ type IncidentDetailPageProps = {
   searchParams?: Promise<Record<string, string | string[] | undefined>>;
 };
 
+type RoleHref = {
+  pathname: string;
+  query?: { role: string };
+};
+
+function roleHref(pathname: string, role: string): RoleHref {
+  return { pathname, query: { role } };
+}
+
 function statusTone(status: string): StatusTone {
   if (["healthy", "resolved", "completed", "approved"].includes(status)) return "healthy";
   if (["degraded", "monitoring", "mitigated"].includes(status)) return "degraded";
@@ -48,9 +57,6 @@ function timelineTone(eventType: string): TimelineItem["tone"] {
   return "slate";
 }
 
-function firstParam(value: string | string[] | undefined) {
-  return Array.isArray(value) ? value[0] : value;
-}
 
 function RolePanel({ roleView }: { roleView: ReturnType<typeof resolveRoleView> }) {
   return (
@@ -71,7 +77,7 @@ function RolePanel({ roleView }: { roleView: ReturnType<typeof resolveRoleView> 
   );
 }
 
-function Hero({ detail }: { detail: IncidentDetail }) {
+function Hero({ detail, role }: { detail: IncidentDetail; role: string }) {
   const { overview } = detail;
 
   return (
@@ -92,7 +98,7 @@ function Hero({ detail }: { detail: IncidentDetail }) {
           </div>
         </div>
         <div className="flex flex-col gap-3 sm:flex-row xl:flex-col">
-          <Link href="/incidents" className="inline-flex h-11 items-center justify-center rounded-2xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-800 shadow-sm transition hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-md dark:border-white/10 dark:bg-white/5 dark:text-slate-100 dark:hover:border-white/20">
+          <Link href={roleHref("/incidents", role)} className="inline-flex h-11 items-center justify-center rounded-2xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-800 shadow-sm transition hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-md dark:border-white/10 dark:bg-white/5 dark:text-slate-100 dark:hover:border-white/20">
             Back to incident queue
           </Link>
           <Button type="button" disabled>
@@ -330,19 +336,17 @@ export default async function IncidentDetailPage({ params, searchParams }: Incid
 
     const emphasized = roleView.role === "engineer";
     const executive = roleView.role === "executive" || roleView.role === "finance-reviewer";
-    const backRoleQuery = firstParam(resolvedSearchParams?.role) ? `?role=${firstParam(resolvedSearchParams?.role)}` : "";
-
     return (
       <div className="space-y-6">
         <div className="flex flex-wrap items-center gap-2 text-sm text-slate-500 dark:text-slate-400">
-          <Link href={`/dashboard${backRoleQuery}`} className="font-semibold text-blue-700 hover:text-blue-800 dark:text-blue-200">Dashboard</Link>
+          <Link href={roleHref("/dashboard", role)} className="font-semibold text-blue-700 hover:text-blue-800 dark:text-blue-200">Dashboard</Link>
           <span>/</span>
-          <Link href={`/incidents${backRoleQuery}`} className="font-semibold text-blue-700 hover:text-blue-800 dark:text-blue-200">Incidents</Link>
+          <Link href={roleHref("/incidents", role)} className="font-semibold text-blue-700 hover:text-blue-800 dark:text-blue-200">Incidents</Link>
           <span>/</span>
           <span>{detail.overview.slug}</span>
         </div>
 
-        <Hero detail={detail} />
+        <Hero detail={detail} role={role} />
         <ImpactCards detail={detail} />
 
         <section className="grid gap-6 xl:grid-cols-[0.72fr_1.28fr]">

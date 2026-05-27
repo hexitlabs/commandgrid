@@ -1,25 +1,52 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { ThemeToggle } from "@/components/theme/theme-toggle";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { primaryNavigation, plannedNavigation } from "@/lib/navigation";
 import { cn } from "@/lib/utils";
 import { useDemoRole } from "@/modules/demo-role/demo-role-provider";
 import { RoleSwitcher } from "@/modules/demo-role/role-switcher";
-import { type ReactNode } from "react";
+import { useEffect, type ReactNode } from "react";
+
+type RoleAwareHref = {
+  pathname: string;
+  query?: { role: string };
+};
+
+function buildRoleAwareHref(pathname: string, roleSlug: string): RoleAwareHref {
+  return { pathname, query: { role: roleSlug } };
+}
 
 export function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
-  const { role } = useDemoRole();
+  const router = useRouter();
+  const { role, roleSlug, isRoleReady } = useDemoRole();
+
+  useEffect(() => {
+    if (!isRoleReady || !pathname) {
+      return;
+    }
+
+    const params = new URLSearchParams(window.location.search);
+    const urlRole = params.get("role");
+
+    if (urlRole === roleSlug) {
+      return;
+    }
+
+    params.set("role", roleSlug);
+    const query = params.toString();
+    router.replace(`${pathname}${query ? `?${query}` : ""}`, { scroll: false });
+  }, [isRoleReady, pathname, roleSlug, router]);
 
   return (
     <div className="min-h-screen bg-[radial-gradient(circle_at_top_left,rgba(59,130,246,0.16),transparent_28rem),linear-gradient(135deg,#f8fafc_0%,#eef3f8_48%,#f8fafc_100%)] text-slate-950 dark:bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,0.13),transparent_28rem),linear-gradient(135deg,#05070b_0%,#0f172a_50%,#080b12_100%)] dark:text-white">
       <div className="mx-auto grid min-h-screen w-full max-w-[1600px] grid-cols-1 lg:grid-cols-[19rem_1fr]">
         <aside className="border-b border-slate-200/80 bg-white/70 px-4 py-4 backdrop-blur-2xl dark:border-white/10 dark:bg-slate-950/55 lg:sticky lg:top-0 lg:h-screen lg:border-b-0 lg:border-r lg:px-5 lg:py-6">
           <div className="flex items-center justify-between gap-4 lg:block">
-            <Link href="/" className="group flex items-center gap-3" aria-label="CommandGrid home">
+            <Link href={buildRoleAwareHref("/", roleSlug)} className="group flex items-center gap-3" aria-label="CommandGrid home">
               <span className="grid h-11 w-11 place-items-center rounded-2xl bg-slate-950 text-sm font-black text-white shadow-lg shadow-slate-950/10 transition group-hover:-translate-y-0.5 dark:bg-white dark:text-slate-950">CG</span>
               <span>
                 <span className="block text-base font-semibold tracking-tight text-slate-950 dark:text-white">CommandGrid</span>
@@ -51,7 +78,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                   return (
                     <Link
                       key={item.label}
-                      href={item.href ?? "/"}
+                      href={buildRoleAwareHref(item.href ?? "/", roleSlug)}
                       className={cn(
                         "rounded-2xl px-3 py-3 text-sm transition focus:outline-none focus:ring-4 focus:ring-blue-500/10",
                         isActive

@@ -12,6 +12,7 @@ import { parseDemoRole, persistDemoRole, readStoredDemoRole } from "@/modules/de
 type DemoRoleContextValue = {
   roleSlug: DemoRoleSlug;
   role: DemoRoleOption;
+  isRoleReady: boolean;
   setRoleSlug: (role: DemoRoleSlug) => void;
 };
 
@@ -19,10 +20,24 @@ const DemoRoleContext = createContext<DemoRoleContextValue | null>(null);
 
 export function DemoRoleProvider({ children }: { children: ReactNode }) {
   const [roleSlug, setRoleSlugState] = useState<DemoRoleSlug>(defaultDemoRole);
+  const [isRoleReady, setIsRoleReady] = useState(false);
 
   useEffect(() => {
-    const urlRole = new URLSearchParams(window.location.search).get("role");
-    setRoleSlugState(urlRole ? parseDemoRole(urlRole) : readStoredDemoRole(window.localStorage));
+    const syncRoleFromUrl = () => {
+      const urlRole = new URLSearchParams(window.location.search).get("role");
+      const nextRole = urlRole ? parseDemoRole(urlRole) : readStoredDemoRole(window.localStorage);
+
+      setRoleSlugState(nextRole);
+      if (urlRole) {
+        persistDemoRole(window.localStorage, nextRole);
+      }
+      setIsRoleReady(true);
+    };
+
+    syncRoleFromUrl();
+    window.addEventListener("popstate", syncRoleFromUrl);
+
+    return () => window.removeEventListener("popstate", syncRoleFromUrl);
   }, []);
 
   const value = useMemo<DemoRoleContextValue>(() => {
@@ -34,9 +49,10 @@ export function DemoRoleProvider({ children }: { children: ReactNode }) {
     return {
       roleSlug,
       role: getDemoRoleOption(roleSlug),
+      isRoleReady,
       setRoleSlug
     };
-  }, [roleSlug]);
+  }, [isRoleReady, roleSlug]);
 
   return <DemoRoleContext.Provider value={value}>{children}</DemoRoleContext.Provider>;
 }

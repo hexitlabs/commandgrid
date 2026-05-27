@@ -21,6 +21,16 @@ type DashboardPageProps = {
 
 type BreachedService = DashboardOverview["slaAvailability"]["breachedServices"][number];
 
+
+type RoleHref = {
+  pathname: string;
+  query?: { role: string };
+};
+
+function roleHref(pathname: string, role: string): RoleHref {
+  return { pathname, query: { role } };
+}
+
 type DashboardMetric = {
   key: string;
   label: string;
@@ -161,7 +171,7 @@ function RoleEmphasis({ roleView }: { roleView: ReturnType<typeof resolveRoleVie
   );
 }
 
-function FlagshipIncident({ overview }: { overview: DashboardOverview }) {
+function FlagshipIncident({ overview, role }: { overview: DashboardOverview; role: string }) {
   const incident = overview.flagshipIncident;
 
   if (!incident) {
@@ -186,7 +196,7 @@ function FlagshipIncident({ overview }: { overview: DashboardOverview }) {
           </div>
         </div>
         <div className="flex flex-col gap-3 sm:flex-row xl:flex-col">
-          <Link href={`/incidents/${incident.slug}`} className="inline-flex h-11 items-center justify-center rounded-2xl bg-slate-950 px-4 text-sm font-semibold text-white shadow-lg shadow-slate-950/10 transition hover:-translate-y-0.5 hover:bg-slate-800 dark:bg-white dark:text-slate-950 dark:hover:bg-slate-200">
+          <Link href={roleHref(`/incidents/${incident.slug}`, role)} className="inline-flex h-11 items-center justify-center rounded-2xl bg-slate-950 px-4 text-sm font-semibold text-white shadow-lg shadow-slate-950/10 transition hover:-translate-y-0.5 hover:bg-slate-800 dark:bg-white dark:text-slate-950 dark:hover:bg-slate-200">
             Open incident command view
           </Link>
           <Button type="button" variant="secondary" disabled>
@@ -238,7 +248,7 @@ function ServiceRiskTable({ services }: { services: BreachedService[] }) {
   );
 }
 
-function ActivityAndApprovals({ overview }: { overview: DashboardOverview }) {
+function ActivityAndApprovals({ overview, role }: { overview: DashboardOverview; role: string }) {
   return (
     <div className="grid gap-6 xl:grid-cols-2">
       <Card>
@@ -273,7 +283,7 @@ function ActivityAndApprovals({ overview }: { overview: DashboardOverview }) {
                 <StatusBadge status={approval.riskLevel} tone={approval.riskLevel === "high" ? "pending" : "neutral"} />
               </div>
               <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">Assigned to {approval.assignedRole ?? "unassigned role"} · due {formatDateTime(approval.dueAt)}</p>
-              {approval.incidentSlug ? <Link href={`/incidents/${approval.incidentSlug}`} className="mt-3 inline-flex text-sm font-semibold text-blue-700 hover:text-blue-800 dark:text-blue-200">Open linked incident →</Link> : null}
+              {approval.incidentSlug ? <Link href={roleHref(`/incidents/${approval.incidentSlug}`, role)} className="mt-3 inline-flex text-sm font-semibold text-blue-700 hover:text-blue-800 dark:text-blue-200">Open linked incident →</Link> : null}
             </div>
           ))}
         </div>
@@ -294,7 +304,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
 
     return (
       <div className="space-y-6">
-        <FlagshipIncident overview={overview} />
+        <FlagshipIncident overview={overview} role={role} />
 
         <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           {metrics.map((metric) => (
@@ -322,7 +332,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
           </Card>
         </section>
 
-        <ActivityAndApprovals overview={overview} />
+        <ActivityAndApprovals overview={overview} role={role} />
       </div>
     );
   } finally {
