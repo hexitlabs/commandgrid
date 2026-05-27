@@ -68,17 +68,14 @@ npm run demo:reset    # deterministic Northstar reset
 npm run db:check      # DB smoke + dashboard metric smoke
 ```
 
-## Dashboard query helpers
+## Dashboard and incident query helpers
 
-Dashboard aggregate helpers live in `src/lib/dashboard/metrics.ts` and return non-empty results after seed/reset:
+Phase 4A typed dashboard/incident helpers live under `src/modules` and return non-empty results after seed/reset:
 
-- active incident summary
-- delayed orders and revenue at risk
-- incident counts by status/severity
-- agent run status summary
-- approval queue counts
-- knowledge/citation counts
-- audit activity counts
-- demo world counts for roles, users, incidents, and reports
+- `src/modules/dashboard/queries.ts` returns operational health, active incidents, delayed orders, revenue at risk, SLA/availability, support sentiment, agent activity, approvals, and historical trend datasets.
+- `src/modules/incidents/queries.ts` returns filtered/sorted incident lists and flagship incident detail data for timeline, business/customer impact, affected orders/services, citations, agents, approvals, reports, and audit previews.
+- `src/modules/roles/view-rules.ts` returns role-specific priority/action metadata for Executive, Ops Manager, Engineer, Support Lead, Finance Reviewer, and Admin views.
 
-`npm run db:check` exercises these helpers against `DATABASE_URL` and prints only non-secret operational counts.
+See `docs/dashboard-incidents-data-contract.md` for the Phase 4 Pixel-facing data contract.
+
+Legacy DB smoke helpers in `src/lib/dashboard/metrics.ts` remain available for `npm run db:check`, which prints only non-secret operational counts.
