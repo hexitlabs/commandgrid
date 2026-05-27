@@ -259,13 +259,13 @@ function AgentPanel({ detail }: { detail: IncidentDetail }) {
   );
 }
 
-function ApprovalReportAuditPanel({ detail }: { detail: IncidentDetail }) {
+function ApprovalReportAuditPanel({ detail, role }: { detail: IncidentDetail; role: string }) {
   return (
     <div className="grid gap-6 xl:grid-cols-3">
       <Card>
         <CardHeader>
-          <CardTitle>Approval / decision preview</CardTitle>
-          <CardDescription>Governed decisions are visible; action buttons are preview-only.</CardDescription>
+          <CardTitle>Approval / decision trail</CardTitle>
+          <CardDescription>Governed decisions link into the Phase 6 approval queue. Server-side permission checks remain authoritative.</CardDescription>
         </CardHeader>
         <div className="space-y-3">
           {detail.approvals.map((approval) => (
@@ -277,8 +277,10 @@ function ApprovalReportAuditPanel({ detail }: { detail: IncidentDetail }) {
               <p className="mt-2 text-sm leading-6 text-slate-600 dark:text-slate-300">{approval.description}</p>
               <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">{approval.assignedRole?.name ?? "Unassigned"} · {approval.riskLevel} risk · due {formatDateTime(approval.dueAt)}</p>
               {approval.decisions[0] ? <p className="mt-2 text-xs font-semibold text-emerald-700 dark:text-emerald-200">Decision: {titleCase(approval.decisions[0].decision)} — {approval.decisions[0].rationale}</p> : null}
+              <Link href={roleHref(`/approvals/${approval.id}`, role)} className="mt-3 inline-flex text-xs font-semibold text-blue-700 hover:text-blue-800 dark:text-blue-200">Open approval detail →</Link>
             </div>
           ))}
+          <Link href={roleHref("/approvals", role)} className="inline-flex text-sm font-semibold text-blue-700 hover:text-blue-800 dark:text-blue-200">Open approval queue →</Link>
         </div>
       </Card>
 
@@ -304,8 +306,8 @@ function ApprovalReportAuditPanel({ detail }: { detail: IncidentDetail }) {
 
       <Card>
         <CardHeader>
-          <CardTitle>Audit preview</CardTitle>
-          <CardDescription>Recent governance trail for linked incident actions.</CardDescription>
+          <CardTitle>Audit trail</CardTitle>
+          <CardDescription>Recent governance trail for linked incident actions with full audit filtering.</CardDescription>
         </CardHeader>
         <div className="space-y-3">
           {detail.auditTrail.slice(0, 6).map((audit) => (
@@ -315,6 +317,7 @@ function ApprovalReportAuditPanel({ detail }: { detail: IncidentDetail }) {
               <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{formatDateTime(audit.occurredAt)}</p>
             </div>
           ))}
+          <Link href={{ pathname: "/audit", query: { role, incidentId: detail.overview.id } }} className="inline-flex text-sm font-semibold text-blue-700 hover:text-blue-800 dark:text-blue-200">Open full incident audit trail →</Link>
         </div>
       </Card>
     </div>
@@ -362,7 +365,7 @@ export default async function IncidentDetailPage({ params, searchParams }: Incid
         {!executive ? <CustomersAndOrders detail={detail} /> : null}
         {!emphasized ? <EvidencePanel detail={detail} /> : null}
         <AgentPanel detail={detail} />
-        <ApprovalReportAuditPanel detail={detail} />
+        <ApprovalReportAuditPanel detail={detail} role={role} />
       </div>
     );
   } finally {

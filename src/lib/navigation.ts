@@ -22,6 +22,20 @@ export const primaryNavigation: NavigationItem[] = [
     phase: "Phase 4"
   },
   {
+    label: "Approvals",
+    description: "Governed decision queue and human-in-the-loop controls.",
+    href: "/approvals",
+    status: "live",
+    phase: "Phase 6"
+  },
+  {
+    label: "Audit",
+    description: "Sanitized approval, workflow, and incident audit trail.",
+    href: "/audit",
+    status: "live",
+    phase: "Phase 6"
+  },
+  {
     label: "Command Center",
     description: "Phase 3 shell and Northstar incident overview.",
     href: "/",
@@ -45,20 +59,14 @@ export const plannedNavigation: NavigationItem[] = [
     phase: "Phase 5"
   },
   {
-    label: "Approvals",
-    description: "Finance, support, and operations decision queue.",
-    status: "planned",
-    phase: "Phase 6"
-  },
-  {
     label: "Knowledge Copilot",
     description: "Cited answers from runbooks, logs, tickets, and reports.",
     status: "planned",
     phase: "Phase 7"
   },
   {
-    label: "Audit & Reports",
-    description: "Executive summaries, audit trail, and post-incident review.",
+    label: "Reports",
+    description: "Executive summaries and post-incident review.",
     status: "planned",
     phase: "Phase 7"
   },
