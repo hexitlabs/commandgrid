@@ -136,9 +136,9 @@ describe("knowledge retrieval and citations", () => {
 
 describe("report request helpers and authorization contract", () => {
   it("parses report roles and limits defensively", () => {
-    expect(reportRoleFromValues(["support-lead", "executive"], "ops-manager")).toBe("support-lead");
-    expect(reportRoleFromValues(["not-a-role", "executive"], "ops-manager")).toBe("executive");
-    expect(reportRoleFromValues([null, null], "ops-manager")).toBe("ops-manager");
+    expect(reportRoleFromValues(["support-lead", "executive"])).toBe("support-lead");
+    expect(reportRoleFromValues(["not-a-role", "executive"])).toBe("executive");
+    expect(reportRoleFromValues([null, null])).toBeNull();
     expect(parseReportLimit(null)).toBe(25);
     expect(parseReportLimit("0")).toBe(1);
     expect(parseReportLimit("250")).toBe(100);
