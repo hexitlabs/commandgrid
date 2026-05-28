@@ -10,7 +10,7 @@ export type GenerateReportInput = {
   incidentId?: string;
   organizationId?: string;
   actorUserId?: string | null;
-  role?: DemoRoleSlug;
+  role: DemoRoleSlug;
   ipAddress?: string | null;
   persist?: boolean;
 };

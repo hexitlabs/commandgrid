@@ -3,7 +3,7 @@ import { getCommandGridCloudflareContext } from "@/lib/cloudflare/context";
 import { openCommandGridDb } from "@/lib/db/server";
 import { demoRoleRequestHeader } from "@/modules/demo-role/request-role-header";
 import { DEFAULT_KNOWLEDGE_ORGANIZATION_ID } from "@/modules/knowledge/prompts";
-import { parseOptionalDemoId, parseReportLimit, reportRoleFromValues } from "@/modules/reports/request";
+import { parseOptionalDemoActorUserId, parseOptionalDemoId, parseReportLimit, reportRoleFromValues } from "@/modules/reports/request";
 import { canGenerateReport, generateIncidentReport, listReports } from "@/modules/reports/service";
 import { REPORT_TYPES, type ReportType } from "@/modules/reports/types";
 import type { AiGenerationEnv } from "@/lib/ai/gateway";
@@ -104,7 +104,7 @@ export async function POST(request: NextRequest) {
     return badRequestResponse(parsedOrganizationId.error);
   }
 
-  const parsedActorUserId = parseOptionalDemoId(body.actorUserId, "actorUserId", "user_");
+  const parsedActorUserId = parseOptionalDemoActorUserId(body.actorUserId);
   if (!parsedActorUserId.ok) {
     return badRequestResponse(parsedActorUserId.error);
   }

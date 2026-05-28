@@ -14,6 +14,7 @@ import {
 import { FLAGSHIP_INCIDENT } from "../../lib/demo/northstar-data";
 import { writeAuditLog } from "../audit/service";
 import { DEFAULT_KNOWLEDGE_ORGANIZATION_ID, matchDemoPrompt } from "../knowledge/prompts";
+import { coerceSeededDemoUserId } from "../roles/demo-users";
 import { repairAnswerCitations, searchKnowledge } from "../knowledge/retrieval";
 import type { KnowledgeCitation } from "../knowledge/types";
 import type { DemoRoleSlug } from "../roles/view-rules";
@@ -209,7 +210,12 @@ export function canGenerateReport(role: DemoRoleSlug, type: ReportType) {
 export async function generateIncidentReport(db: CommandGridDbLike, env: ReportEnv = {}, input: GenerateReportInput): Promise<GeneratedReport> {
   const organizationId = input.organizationId ?? DEFAULT_KNOWLEDGE_ORGANIZATION_ID;
   const incidentId = input.incidentId ?? FLAGSHIP_INCIDENT.id;
-  const role = input.role ?? "ops-manager";
+  const role = input.role;
+  const actorUserId = coerceSeededDemoUserId(input.actorUserId);
+
+  if (!role) {
+    throw new Error("A valid demo role is required to generate reports.");
+  }
 
   if (!canGenerateReport(role, input.reportType)) {
     throw new Error(`Role ${role} cannot generate ${input.reportType} reports in the demo contract.`);
@@ -237,7 +243,7 @@ export async function generateIncidentReport(db: CommandGridDbLike, env: ReportE
         title: reportTitles[input.reportType],
         reportType: input.reportType,
         status: "draft",
-        generatedByUserId: input.actorUserId ?? null,
+        generatedByUserId: actorUserId,
         generatedAt: now,
         storageUri,
         summary,
@@ -259,7 +265,7 @@ export async function generateIncidentReport(db: CommandGridDbLike, env: ReportE
           title: reportTitles[input.reportType],
           reportType: input.reportType,
           status: "draft",
-          generatedByUserId: input.actorUserId ?? null,
+          generatedByUserId: actorUserId,
           generatedAt: now,
           storageUri,
           summary,
@@ -282,7 +288,7 @@ export async function generateIncidentReport(db: CommandGridDbLike, env: ReportE
   await writeAuditLog(db, {
     id: stableId("audit_report", [id, input.reportType, role], now),
     organizationId,
-    actorUserId: input.actorUserId ?? null,
+    actorUserId,
     action: "report.generated",
     targetType: "report",
     targetId: id,

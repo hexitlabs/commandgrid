@@ -2,10 +2,11 @@ import { describe, expect, it } from "vitest";
 import { KNOWLEDGE_DOCUMENTS } from "../src/lib/demo/northstar-data";
 import type { CommandGridDbLike } from "../src/lib/db/client";
 import { DEMO_COPILOT_PROMPTS } from "../src/modules/knowledge/prompts";
+import { DEFAULT_COPILOT_RETRIEVAL_LIMIT, MAX_COPILOT_RETRIEVAL_LIMIT, parseCopilotRetrievalLimit } from "../src/modules/knowledge/limits";
 import { rankKnowledgeRows, repairAnswerCitations, validateCitationIds, type KnowledgeRow } from "../src/modules/knowledge/retrieval";
 import { askKnowledgeCopilot, DEMO_FALLBACK_ANSWERS } from "../src/modules/knowledge/service";
-import { parseReportLimit, reportRoleFromValues } from "../src/modules/reports/request";
-import { canGenerateReport } from "../src/modules/reports/service";
+import { parseOptionalDemoActorUserId, parseReportLimit, reportRoleFromValues } from "../src/modules/reports/request";
+import { canGenerateReport, generateIncidentReport } from "../src/modules/reports/service";
 
 function seededKnowledgeRows() {
   return KNOWLEDGE_DOCUMENTS.map(([documentId, sourceId, , title, documentType, content, citationLabel, citationUri, version]) => ({
@@ -86,6 +87,71 @@ function createKnowledgeOnlyDb(rows: KnowledgeRow[]) {
   } as unknown as CommandGridDbLike;
 }
 
+type ReportWrite = { generatedByUserId?: string | null; actorUserId?: string | null; action?: string };
+
+type QueryResult<Row> = PromiseLike<Row[]> & {
+  limit: (limit: number) => Promise<Row[]>;
+  orderBy: () => Promise<Row[]>;
+};
+
+function queryResult<Row>(rows: Row[]): QueryResult<Row> {
+  return {
+    limit: async (limit: number) => rows.slice(0, limit),
+    orderBy: async () => rows,
+    then: (onfulfilled, onrejected) => Promise.resolve(rows).then(onfulfilled, onrejected)
+  };
+}
+
+function createReportDb(writes: ReportWrite[]) {
+  const incident = {
+    id: "inc_warehouse_api_latency_2025_02_18",
+    organizationId: "org_northstar_logistics",
+    slug: "warehouse-api-latency-spike",
+    title: "Warehouse API latency spike",
+    summary: "Warehouse API latency is delaying route assignments.",
+    status: "active",
+    severity: "sev1",
+    startedAt: new Date("2025-02-18T16:00:00.000Z"),
+    detectedAt: new Date("2025-02-18T16:05:00.000Z"),
+    resolvedAt: null,
+    delayedOrders: 312,
+    revenueAtRiskCents: 4_820_000,
+    customerImpactSummary: "312 orders are delayed."
+  };
+
+  const rowsForSelect = (fields: Record<string, unknown>): unknown[] => {
+    if ("snippetId" in fields) return seededKnowledgeRows();
+    if ("summary" in fields) return [incident];
+    if ("eventType" in fields) return [{ title: "Detected", body: "Latency detected", eventType: "detected", occurredAt: new Date("2025-02-18T16:05:00.000Z") }];
+    if ("impactType" in fields) return [{ impactType: "orders", severity: "high", description: "Delayed orders", affectedCount: 312, revenueAtRiskCents: 4_820_000 }];
+    if ("metadata" in fields) return [{ title: "Enable buffer mode", body: "Use regional buffer mode", priority: "high", status: "proposed", metadata: {} }];
+    if ("orderNumber" in fields) return [{ orderNumber: "NS-900145", status: "delayed", revenueCents: 515_000, delayedMinutes: 92, customerName: "Apex Retail Group", priority: "platinum", region: "North America" }];
+    return [];
+  };
+
+  return {
+    select: (fields: Record<string, unknown>) => ({
+      from: () => ({
+        innerJoin() {
+          return this;
+        },
+        where() {
+          return queryResult(rowsForSelect(fields));
+        }
+      })
+    }),
+    insert: () => ({
+      values: (value: ReportWrite) => {
+        writes.push(value);
+        return {
+          onConflictDoUpdate: async () => undefined,
+          onConflictDoNothing: async () => undefined
+        };
+      }
+    })
+  } as unknown as CommandGridDbLike;
+}
+
 const expectedFallbackCitationLabels: Record<string, string[]> = {
   "warehouse-root-cause": ["RUN-WH-API-004", "ENG-WMS-117"],
   "ops-next-action": ["OPS-BUF-006", "RUN-WH-API-004"],
@@ -144,6 +210,39 @@ describe("report request helpers and authorization contract", () => {
     expect(parseReportLimit("250")).toBe(100);
     expect(parseReportLimit("12.8")).toBe(12);
     expect(parseReportLimit("not-a-number")).toBe(25);
+  });
+
+  it("clamps copilot retrieval limits defensively", () => {
+    expect(parseCopilotRetrievalLimit(undefined)).toBe(DEFAULT_COPILOT_RETRIEVAL_LIMIT);
+    expect(parseCopilotRetrievalLimit(0)).toBe(1);
+    expect(parseCopilotRetrievalLimit(-4)).toBe(1);
+    expect(parseCopilotRetrievalLimit(4.8)).toBe(4);
+    expect(parseCopilotRetrievalLimit(10_000)).toBe(MAX_COPILOT_RETRIEVAL_LIMIT);
+  });
+
+  it("whitelists seeded demo actor ids and safely drops unknown actor ids", () => {
+    expect(parseOptionalDemoActorUserId("user_diego_alvarez")).toEqual({ ok: true, value: "user_diego_alvarez" });
+    expect(parseOptionalDemoActorUserId("user_valid_but_not_seeded")).toEqual({ ok: true, value: undefined });
+    expect(parseOptionalDemoActorUserId("../user")).toEqual({ ok: false, error: "Invalid actorUserId." });
+  });
+
+  it("requires an explicit service-level role instead of defaulting to a privileged role", async () => {
+    await expect(
+      generateIncidentReport({} as CommandGridDbLike, { COMMANDGRID_AI_DISABLED: "true" }, { reportType: "postmortem" } as Parameters<typeof generateIncidentReport>[2])
+    ).rejects.toThrow("A valid demo role is required to generate reports.");
+  });
+
+  it("coerces unknown actor user ids to null before report and audit writes", async () => {
+    const writes: ReportWrite[] = [];
+
+    await generateIncidentReport(createReportDb(writes), { COMMANDGRID_AI_DISABLED: "true" }, {
+      reportType: "postmortem",
+      role: "ops-manager",
+      actorUserId: "user_valid_but_not_seeded"
+    });
+
+    expect(writes.find((write) => "generatedByUserId" in write)?.generatedByUserId).toBeNull();
+    expect(writes.find((write) => write.action === "report.generated")?.actorUserId).toBeNull();
   });
 
   it("allows expected demo roles to generate scoped report types", () => {

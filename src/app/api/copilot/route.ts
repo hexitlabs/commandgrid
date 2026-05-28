@@ -4,6 +4,7 @@ import { openCommandGridDb } from "@/lib/db/server";
 import { demoRoleRequestHeader } from "@/modules/demo-role/request-role-header";
 import { demoCopilotPrompts, askKnowledgeCopilot } from "@/modules/knowledge/service";
 import { DEFAULT_KNOWLEDGE_ORGANIZATION_ID } from "@/modules/knowledge/prompts";
+import { parseCopilotRetrievalLimit } from "@/modules/knowledge/limits";
 import { parseDemoRole } from "@/modules/permissions/governance";
 import type { AiGenerationEnv } from "@/lib/ai/gateway";
 
@@ -99,7 +100,7 @@ export async function POST(request: NextRequest) {
       role: roleFromRequest(request, body.role),
       organizationId: typeof body.organizationId === "string" ? body.organizationId : undefined,
       actorUserId: typeof body.actorUserId === "string" ? body.actorUserId : null,
-      limit: typeof body.limit === "number" ? body.limit : undefined,
+      limit: parseCopilotRetrievalLimit(body.limit),
       ipAddress: limited.ip
     });
 

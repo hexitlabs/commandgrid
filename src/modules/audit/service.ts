@@ -1,5 +1,6 @@
 import { auditLogs } from "../../lib/db/schema";
 import type { CommandGridDbLike } from "../../lib/db/client";
+import { coerceSeededDemoUserId } from "../roles/demo-users";
 
 export type AuditLogInput = {
   id: string;
@@ -14,12 +15,14 @@ export type AuditLogInput = {
 };
 
 export async function writeAuditLog(db: CommandGridDbLike, input: AuditLogInput) {
+  const actorUserId = coerceSeededDemoUserId(input.actorUserId);
+
   await db
     .insert(auditLogs)
     .values({
       id: input.id,
       organizationId: input.organizationId,
-      actorUserId: input.actorUserId ?? null,
+      actorUserId,
       action: input.action,
       targetType: input.targetType,
       targetId: input.targetId,

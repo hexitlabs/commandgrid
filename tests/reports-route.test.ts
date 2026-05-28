@@ -151,6 +151,31 @@ describe("reports API route safety", () => {
     expect(end).toHaveBeenCalledWith({ timeout: 1 });
   });
 
+  it("coerces valid-looking unknown actor user ids to null before FK-backed writes", async () => {
+    const end = vi.fn();
+    const db = { tag: "db" };
+    canGenerateReportMock.mockReturnValue(true);
+    generateIncidentReportMock.mockResolvedValue({ id: "report_123", role: "ops-manager" });
+    getCommandGridCloudflareContextMock.mockResolvedValue(null);
+    openCommandGridDbMock.mockResolvedValue({ db, sql: { end } });
+
+    const response = await createReport(
+      request("http://localhost/api/reports", {
+        method: "POST",
+        headers: { "content-type": "application/json", [demoRoleRequestHeader]: "ops-manager" },
+        body: JSON.stringify({ reportType: "postmortem", actorUserId: "user_valid_but_not_seeded" })
+      })
+    );
+
+    expect(response.status).toBe(200);
+    expect(generateIncidentReportMock).toHaveBeenCalledWith(
+      db,
+      expect.any(Object),
+      expect.objectContaining({ actorUserId: null, role: "ops-manager" })
+    );
+    expect(end).toHaveBeenCalledWith({ timeout: 1 });
+  });
+
   it("rejects bad organization and actor user ids before report generation side effects", async () => {
     const headers = { "content-type": "application/json", [demoRoleRequestHeader]: "ops-manager" };
     const badOrg = await createReport(

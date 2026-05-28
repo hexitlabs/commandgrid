@@ -1,4 +1,5 @@
 import type { DemoRoleSlug } from "../roles/view-rules";
+import { coerceSeededDemoUserId } from "../roles/demo-users";
 import { parseDemoRole } from "../permissions/governance";
 
 const defaultReportLimit = 25;
@@ -39,4 +40,11 @@ export function parseOptionalDemoId(value: unknown, field: "organizationId" | "a
   }
 
   return { ok: true, value: trimmed };
+}
+
+export function parseOptionalDemoActorUserId(value: unknown): ParsedOptionalId {
+  const parsed = parseOptionalDemoId(value, "actorUserId", "user_");
+  if (!parsed.ok || !parsed.value) return parsed;
+
+  return { ok: true, value: coerceSeededDemoUserId(parsed.value) ?? undefined };
 }

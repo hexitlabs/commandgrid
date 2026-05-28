@@ -2,7 +2,9 @@ import { generateWithAiGateway, type AiGenerationEnv, type AiGenerationResult } 
 import type { CommandGridDbLike } from "../../lib/db/client";
 import { writeAuditLog } from "../audit/service";
 import { getRoleViewRule, type DemoRoleSlug } from "../roles/view-rules";
+import { coerceSeededDemoUserId } from "../roles/demo-users";
 import { DEMO_COPILOT_PROMPTS, DEFAULT_KNOWLEDGE_ORGANIZATION_ID, matchDemoPrompt, roleForPrompt } from "./prompts";
+import { parseCopilotRetrievalLimit } from "./limits";
 import { repairAnswerCitations, searchKnowledge } from "./retrieval";
 import type { CopilotAskInput, CopilotAskResult, KnowledgeCitation } from "./types";
 
@@ -105,9 +107,11 @@ export function demoCopilotPrompts(role?: DemoRoleSlug) {
 export async function askKnowledgeCopilot(db: CommandGridDbLike, env: CopilotEnv = {}, input: CopilotAskInput): Promise<CopilotAskResult> {
   const organizationId = input.organizationId ?? DEFAULT_KNOWLEDGE_ORGANIZATION_ID;
   const question = input.question.trim();
+  const retrievalLimit = parseCopilotRetrievalLimit(input.limit);
+  const actorUserId = coerceSeededDemoUserId(input.actorUserId);
   const matchedPrompt = matchDemoPrompt(question);
   const preferredCitationLabels = matchedPrompt ? DEMO_FALLBACK_ANSWERS[matchedPrompt.id]?.citationLabels : undefined;
-  const search = await searchKnowledge(db, { query: question, organizationId, limit: input.limit ?? 6, preferredCitationLabels });
+  const search = await searchKnowledge(db, { query: question, organizationId, limit: retrievalLimit, preferredCitationLabels });
   const fallback = fallbackForQuestion(question, search.citations);
   const role = input.role ?? roleForPrompt(fallback.prompt?.id, "executive");
   const answerCitations = fallback.citations;
@@ -119,7 +123,7 @@ export async function askKnowledgeCopilot(db: CommandGridDbLike, env: CopilotEnv
   await writeAuditLog(db, {
     id: stableId("audit_copilot", [targetId], now),
     organizationId,
-    actorUserId: input.actorUserId ?? null,
+    actorUserId,
     action: "copilot.asked",
     targetType: "knowledge_query",
     targetId,

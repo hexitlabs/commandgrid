@@ -2,6 +2,7 @@ import { eq } from "drizzle-orm";
 import type { CommandGridDbLike } from "../../lib/db/client";
 import { knowledgeDocuments, knowledgeSnippets, knowledgeSources } from "../../lib/db/schema";
 import { DEFAULT_KNOWLEDGE_ORGANIZATION_ID, matchDemoPrompt } from "./prompts";
+import { parseCopilotRetrievalLimit } from "./limits";
 import type { KnowledgeCitation, KnowledgeSearchResult } from "./types";
 
 export type KnowledgeRow = {
@@ -96,6 +97,7 @@ function compareKnowledgeMatches(a: KnowledgeMatch, b: KnowledgeMatch) {
 }
 
 export function rankKnowledgeRows(rows: KnowledgeRow[], query: string, limit = 5): KnowledgeSearchResult["matches"] {
+  const retrievalLimit = parseCopilotRetrievalLimit(limit, 5);
   const tokens = tokenize(query);
   const prompt = matchDemoPrompt(query);
   const boosts = prompt ? demoBoosts[prompt.id] ?? [] : [];
@@ -122,7 +124,7 @@ export function rankKnowledgeRows(rows: KnowledgeRow[], query: string, limit = 5
     }
   }
 
-  return Array.from(bestByDocument.values()).slice(0, limit);
+  return Array.from(bestByDocument.values()).slice(0, retrievalLimit);
 }
 
 function preferredCitationMatches(rows: KnowledgeRow[], labels: string[]): KnowledgeMatch[] {
@@ -180,8 +182,9 @@ export async function searchKnowledge(
   input: { query: string; organizationId?: string; limit?: number; preferredCitationLabels?: string[] }
 ): Promise<KnowledgeSearchResult> {
   const organizationId = input.organizationId ?? DEFAULT_KNOWLEDGE_ORGANIZATION_ID;
+  const retrievalLimit = parseCopilotRetrievalLimit(input.limit, 5);
   const rows = await loadKnowledgeRows(db, organizationId);
-  const matches = ensurePreferredCitationMatches(rankKnowledgeRows(rows, input.query, input.limit ?? 5), rows, input.preferredCitationLabels);
+  const matches = ensurePreferredCitationMatches(rankKnowledgeRows(rows, input.query, retrievalLimit), rows, input.preferredCitationLabels);
 
   return {
     query: input.query,
