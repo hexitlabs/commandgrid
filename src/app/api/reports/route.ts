@@ -24,6 +24,15 @@ function parseReportType(value: unknown): ReportType | null {
   return typeof value === "string" && (REPORT_TYPES as readonly string[]).includes(value) ? (value as ReportType) : null;
 }
 
+const defaultReportLimit = 25;
+const maxReportLimit = 100;
+
+function parseReportLimit(value: string | null) {
+  const parsed = Number(value ?? defaultReportLimit);
+  if (!Number.isFinite(parsed)) return defaultReportLimit;
+  return Math.min(maxReportLimit, Math.max(1, Math.trunc(parsed)));
+}
+
 function ipFromRequest(request: NextRequest) {
   return request.headers.get("cf-connecting-ip") ?? request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "local";
 }
@@ -43,7 +52,7 @@ function aiEnv(env: AiGenerationEnv | null | undefined): AiGenerationEnv {
 export async function GET(request: NextRequest) {
   const url = new URL(request.url);
   const organizationId = url.searchParams.get("organizationId") ?? DEFAULT_KNOWLEDGE_ORGANIZATION_ID;
-  const limit = Number(url.searchParams.get("limit") ?? 25);
+  const limit = parseReportLimit(url.searchParams.get("limit"));
   const role = parseDemoRole(url.searchParams.get("role") ?? request.headers.get(demoRoleRequestHeader)) ?? "executive";
   const commandGrid = await openCommandGridDb();
 

@@ -13,7 +13,7 @@ type DemoFallback = {
   citationLabels: string[];
 };
 
-const fallbackAnswers: Record<string, DemoFallback> = {
+export const DEMO_FALLBACK_ANSWERS: Record<string, DemoFallback> = {
   "warehouse-root-cause": {
     answer:
       "The strongest supported cause is Warehouse API connection-pool saturation during the pick-wave surge. The runbook says to check p95 latency, queue depth, Postgres saturation, and autoscaling before buffer mode, and the engineering note says each regional pool is capped at 90 connections with brownout protection above 250ms pool wait. [RUN-WH-API-004] [ENG-WMS-117]",
@@ -53,20 +53,20 @@ function stableId(prefix: string, values: Array<string | null | undefined>, now 
   return `${prefix}_${now.getTime().toString(36)}_${hash.toString(36)}`;
 }
 
-function citationsByPreferredLabels(citations: KnowledgeCitation[], labels: string[]) {
+export function selectCitationsByPreferredLabels(citations: KnowledgeCitation[], labels: string[]) {
   const byLabel = new Map(citations.map((citation) => [citation.label, citation]));
   const selected = labels.map((label) => byLabel.get(label)).filter((citation): citation is KnowledgeCitation => Boolean(citation));
-  return selected.length > 0 ? selected : citations.slice(0, 4);
+  return selected.length === labels.length ? selected : citations.slice(0, 4);
 }
 
 function fallbackForQuestion(question: string, citations: KnowledgeCitation[]) {
   const prompt = matchDemoPrompt(question);
   if (prompt) {
-    const fallback = fallbackAnswers[prompt.id];
+    const fallback = DEMO_FALLBACK_ANSWERS[prompt.id];
     return {
       prompt,
       answer: fallback.answer,
-      citations: citationsByPreferredLabels(citations, fallback.citationLabels)
+      citations: selectCitationsByPreferredLabels(citations, fallback.citationLabels)
     };
   }
 
@@ -105,7 +105,9 @@ export function demoCopilotPrompts(role?: DemoRoleSlug) {
 export async function askKnowledgeCopilot(db: CommandGridDbLike, env: CopilotEnv = {}, input: CopilotAskInput): Promise<CopilotAskResult> {
   const organizationId = input.organizationId ?? DEFAULT_KNOWLEDGE_ORGANIZATION_ID;
   const question = input.question.trim();
-  const search = await searchKnowledge(db, { query: question, organizationId, limit: input.limit ?? 6 });
+  const matchedPrompt = matchDemoPrompt(question);
+  const preferredCitationLabels = matchedPrompt ? DEMO_FALLBACK_ANSWERS[matchedPrompt.id]?.citationLabels : undefined;
+  const search = await searchKnowledge(db, { query: question, organizationId, limit: input.limit ?? 6, preferredCitationLabels });
   const fallback = fallbackForQuestion(question, search.citations);
   const role = input.role ?? roleForPrompt(fallback.prompt?.id, "executive");
   const answerCitations = fallback.citations;
