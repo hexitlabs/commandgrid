@@ -4,6 +4,7 @@ import type { CommandGridDbLike } from "../src/lib/db/client";
 import { DEMO_COPILOT_PROMPTS } from "../src/modules/knowledge/prompts";
 import { rankKnowledgeRows, repairAnswerCitations, validateCitationIds, type KnowledgeRow } from "../src/modules/knowledge/retrieval";
 import { askKnowledgeCopilot, DEMO_FALLBACK_ANSWERS } from "../src/modules/knowledge/service";
+import { parseReportLimit, reportRoleFromValues } from "../src/modules/reports/request";
 import { canGenerateReport } from "../src/modules/reports/service";
 
 function seededKnowledgeRows() {
@@ -133,7 +134,18 @@ describe("knowledge retrieval and citations", () => {
   });
 });
 
-describe("report generation authorization contract", () => {
+describe("report request helpers and authorization contract", () => {
+  it("parses report roles and limits defensively", () => {
+    expect(reportRoleFromValues(["support-lead", "executive"], "ops-manager")).toBe("support-lead");
+    expect(reportRoleFromValues(["not-a-role", "executive"], "ops-manager")).toBe("executive");
+    expect(reportRoleFromValues([null, null], "ops-manager")).toBe("ops-manager");
+    expect(parseReportLimit(null)).toBe(25);
+    expect(parseReportLimit("0")).toBe(1);
+    expect(parseReportLimit("250")).toBe(100);
+    expect(parseReportLimit("12.8")).toBe(12);
+    expect(parseReportLimit("not-a-number")).toBe(25);
+  });
+
   it("allows expected demo roles to generate scoped report types", () => {
     expect(canGenerateReport("ops-manager", "postmortem")).toBe(true);
     expect(canGenerateReport("admin", "customer-impact")).toBe(true);
