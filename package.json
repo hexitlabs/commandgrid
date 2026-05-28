@@ -21,7 +21,8 @@
     "db:seed": "tsx scripts/seed.ts",
     "demo:reset": "tsx scripts/reset-demo.ts",
     "workflow:smoke": "tsx scripts/workflow-smoke.ts",
-    "governance:audit-smoke": "tsx scripts/governance-audit-smoke.ts"
+    "governance:audit-smoke": "tsx scripts/governance-audit-smoke.ts",
+    "knowledge:reports-smoke": "tsx scripts/knowledge-reports-smoke.ts"
   },
   "dependencies": {
     "@opennextjs/cloudflare": "^1.19.11",
