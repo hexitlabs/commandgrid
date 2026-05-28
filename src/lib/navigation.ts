@@ -36,6 +36,20 @@ export const primaryNavigation: NavigationItem[] = [
     phase: "Phase 6"
   },
   {
+    label: "Knowledge Copilot",
+    description: "Cited answers from runbooks, logs, tickets, and reports.",
+    href: "/copilot",
+    status: "live",
+    phase: "Phase 7"
+  },
+  {
+    label: "Reports",
+    description: "Generate postmortems, executive summaries, and customer-impact reports.",
+    href: "/reports",
+    status: "live",
+    phase: "Phase 7"
+  },
+  {
     label: "Command Center",
     description: "Phase 3 shell and Northstar incident overview.",
     href: "/",
@@ -57,18 +71,6 @@ export const plannedNavigation: NavigationItem[] = [
     description: "Runbooks, investigation tasks, and governed remediation.",
     status: "planned",
     phase: "Phase 5"
-  },
-  {
-    label: "Knowledge Copilot",
-    description: "Cited answers from runbooks, logs, tickets, and reports.",
-    status: "planned",
-    phase: "Phase 7"
-  },
-  {
-    label: "Reports",
-    description: "Executive summaries and post-incident review.",
-    status: "planned",
-    phase: "Phase 7"
   },
   {
     label: "Admin",
