@@ -86,6 +86,28 @@ Expected results:
 - `/api/health`: all Phase 1 bindings present, AI Gateway configured mode
 - `/api/db-smoke`: `ok=true`, database `neondb`, user `neondb_owner`, schema `public`
 
+## Automated preview deployment
+
+GitHub Actions deploys the Cloudflare preview Worker after the CI `check` job succeeds on `push` to `main`. The deploy job runs:
+
+```bash
+npm ci
+npm run cf:build
+npx wrangler deploy --env preview
+```
+
+A manual `workflow_dispatch` run is also available, but the deploy job is guarded to run only from `refs/heads/main`. Pull requests and non-`main` branches never deploy.
+
+Required GitHub Actions secrets/config for preview deploy:
+
+- `CLOUDFLARE_API_TOKEN`: Cloudflare API token with permission to deploy the `commandgrid-preview` Worker and read/write the configured preview resources as required by Wrangler.
+- `CLOUDFLARE_ACCOUNT_ID`: Cloudflare account ID used by Wrangler during non-interactive deploys.
+- `CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_COMMANDGRID_DB`: deploy-time Hyperdrive local connection string for the `COMMANDGRID_DB` binding. Use the safe preview/deploy equivalent of `COMMANDGRID_DATABASE_URL`; never commit or print the value.
+
+If any required secret is missing, the deploy job fails during the `Verify deploy configuration` step with the missing secret name only. Secret values are never printed.
+
+This automation targets only the `preview` Wrangler environment (`commandgrid-preview`). It does not deploy production.
+
 ## Deployment caveats
 
 OpenNext/Cloudflare requires a local Hyperdrive emulation connection string during build/deploy. Use the local secret only:
