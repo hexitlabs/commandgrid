@@ -101,6 +101,12 @@ function Hero({ detail, role }: { detail: IncidentDetail; role: string }) {
           <Link href={roleHref("/incidents", role)} className="inline-flex h-11 items-center justify-center rounded-2xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-800 shadow-sm transition hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-md dark:border-white/10 dark:bg-white/5 dark:text-slate-100 dark:hover:border-white/20">
             Back to incident queue
           </Link>
+          <Link href={{ pathname: "/copilot", query: { role, question: `What caused ${overview.title} and what evidence supports it?` } }} className="inline-flex h-11 items-center justify-center rounded-2xl bg-slate-950 px-4 text-sm font-semibold text-white shadow-lg shadow-slate-950/10 transition hover:-translate-y-0.5 hover:bg-slate-800 hover:shadow-xl dark:bg-white dark:text-slate-950 dark:hover:bg-slate-200">
+            Ask Copilot about this incident
+          </Link>
+          <Link href={{ pathname: "/reports", query: { role, incidentId: overview.id } }} className="inline-flex h-11 items-center justify-center rounded-2xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-800 shadow-sm transition hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-md dark:border-white/10 dark:bg-white/5 dark:text-slate-100 dark:hover:border-white/20">
+            Generate report
+          </Link>
           <Button type="button" disabled>
             Preview: publish update · Phase 6
           </Button>
@@ -298,9 +304,10 @@ function ApprovalReportAuditPanel({ detail, role }: { detail: IncidentDetail; ro
               </div>
               <p className="mt-2 text-sm leading-6 text-slate-600 dark:text-slate-300">{report.summary}</p>
               <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">{titleCase(report.reportType)} · generated {formatDateTime(report.generatedAt)}</p>
+              <Link href={{ pathname: `/reports/${report.id}`, query: { role } }} className="mt-3 inline-flex text-xs font-semibold text-blue-700 hover:text-blue-800 dark:text-blue-200">Open report detail →</Link>
             </div>
           ))}
-          <Button type="button" variant="secondary" disabled className="w-full">Preview: export post-incident report · Phase 7</Button>
+          <Link href={{ pathname: "/reports", query: { role, incidentId: detail.overview.id } }} className="inline-flex h-11 w-full items-center justify-center rounded-2xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-800 shadow-sm transition hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-md dark:border-white/10 dark:bg-white/5 dark:text-slate-100 dark:hover:border-white/20">Generate Phase 7 report →</Link>
         </div>
       </Card>
 
