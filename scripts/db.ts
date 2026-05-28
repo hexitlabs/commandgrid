@@ -1,4 +1,3 @@
-import "dotenv/config";
 import { config } from "dotenv";
 import postgres from "postgres";
 
