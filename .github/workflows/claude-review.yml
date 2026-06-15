@@ -1,0 +1,54 @@
+name: Claude PR Review
+
+# Auto-review every PR: post severity + confidence-scored comments,
+# auto-apply high-confidence (>=80%) suggestions, and leave the rest
+# as comments for a human to decide.
+
+on:
+  pull_request:
+    types: [opened, synchronize]
+
+# Skip draft PRs to cut noise/cost while still iterating.
+jobs:
+  review:
+    if: github.event.pull_request.draft == false
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write          # needed to push auto-applied fixes
+      pull-requests: write      # needed to post review comments
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          # Check out the PR's head branch so any commits land on it.
+          ref: ${{ github.event.pull_request.head.ref }}
+          fetch-depth: 0
+
+      - uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          prompt: |
+            Review this pull request. Be concise and high-signal: only flag
+            bugs, security issues, correctness, performance, and
+            maintainability risks. Do not nitpick formatting.
+
+            For EACH issue, post an INLINE comment on the exact line(s):
+
+            **[<severity>] <one-line title>**  ·  Confidence: <0-100>%
+            <1-2 sentence explanation>
+
+            Severity is one of: 🔴 Critical, 🟠 Major, 🟡 Minor, 🔵 Nit.
+            Skip anything below ~50% confidence.
+
+            Then ACT on what you found:
+            - For any issue with Confidence >= 80%, apply the fix directly,
+              commit it to this branch, and push. EXCEPTION: for 🔴 Critical
+              or security-related issues, do NOT auto-apply — instead post the
+              suggestion as a committable ```suggestion block and flag that it
+              needs human sign-off.
+            - For issues with Confidence < 80%, do NOT change code. Post a
+              committable ```suggestion block where a fix is concrete.
+
+            End with a summary comment containing:
+            - A verdict: ✅ Approve / 🟡 Approve with comments / 🔴 Request changes
+            - A table: | File:line | Severity | Confidence | Auto-applied? | Issue |
+            - Totals by severity, and a list of what you auto-applied vs. left.
